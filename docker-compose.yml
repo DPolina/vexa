@@ -104,7 +104,7 @@ services:
       - |
         if [ "$${DEVICE_TYPE}" = "cuda" ]; then
           echo 'INFO: DEVICE_TYPE is cuda, starting WhisperLive GPU service.' &&
-          exec python3 /app/run_server.py --port 9090 --backend faster_whisper -fw /root/.cache/huggingface/hub/models--Systran--faster-whisper-medium/snapshots/08e178d48790749d25932bbc082711ddcfdfbc4f;
+          exec python3 /app/run_server.py --port 9090 --backend faster_whisper -fw /root/.cache/huggingface/hub/models--dvislobokov--faster-whisper-large-v3-turbo-russian/snapshots/8e61418c7bfbb035d062cd02d1cb899574d6157d;
         else
           echo "INFO: DEVICE_TYPE is not cuda (it is '$${DEVICE_TYPE}'), WhisperLive GPU service will not start. Sleeping indefinitely." &&
           sleep infinity;
@@ -118,10 +118,13 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["3"] # Ensure this is configurable or correct for your setup
+              device_ids: ["0"] # Ensure this is configurable or correct for your setup
               capabilities: [gpu]
+    #gpus: all
     init: true
     depends_on:
+      redis:
+        condition: service_started
       transcription-collector:
         condition: service_started
     networks:

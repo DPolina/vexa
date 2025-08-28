@@ -293,6 +293,7 @@ async def start_bot_container(
         "HostConfig": {
             "NetworkMode": DOCKER_NETWORK,
             "AutoRemove": True
+            #"AutoRemove": False
         },
     }
 

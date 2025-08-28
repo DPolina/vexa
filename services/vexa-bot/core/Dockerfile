@@ -38,6 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     pulseaudio \
     xserver-xephyr \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the built application and node_modules from the base stage

@@ -24,3 +24,4 @@ tokenizers==0.21.1
 tqdm==4.67.1
 typing-extensions==4.13.2
 urllib3==2.4.0
+nvidia-container-toolkit==1.17.8-1

@@ -1,73 +1,59 @@
 import { Page } from "playwright";
 import { log, randomDelay } from "../utils";
 import { BotConfig } from "../types";
-import { v4 as uuidv4 } from "uuid"; // Import UUID
+import { v4 as uuidv4 } from "uuid";
 
-// --- ADDED: Function to generate UUID (if not already present globally) ---
-// If you have a shared utils file for this, import from there instead.
 function generateUUID() {
   return uuidv4();
 }
-// --- --------------------------------------------------------- ---
 
+// handleGoogleMeet
 export async function handleGoogleMeet(
   botConfig: BotConfig,
   page: Page,
-  gracefulLeaveFunction: (page: Page | null, exitCode: number, reason: string) => Promise<void>
+  gracefulLeaveFunction: (page: Page | null, exitCode: number, reason:string) => Promise<void>
 ): Promise<void> {
-  const leaveButton = `//button[@aria-label="Leave call"]`;
+  const peoplebtn = `button[aria-label^="People"]`;
+  log("NEW LOGIC HERE");
 
   if (!botConfig.meetingUrl) {
     log("Error: Meeting URL is required for Google Meet but is null.");
-    // If meeting URL is missing, we can't join, so trigger graceful leave.
     await gracefulLeaveFunction(page, 1, "missing_meeting_url");
     return;
   }
 
-  log("Joining Google Meet");
+  log("Starting: joinMeeting");
   try {
     await joinMeeting(page, botConfig.meetingUrl, botConfig.botName);
   } catch (error: any) {
-    console.error("Error during joinMeeting: " + error.message);
     log("Error during joinMeeting: " + error.message + ". Triggering graceful leave.");
     await gracefulLeaveFunction(page, 1, "join_meeting_error");
     return;
   }
 
-  // Setup websocket connection and meeting admission concurrently
-  log("Starting WebSocket connection while waiting for meeting admission");
+  log("Waiting for meeting admission... <---- NEW");
   try {
-    // Run both processes concurrently
-    const [isAdmitted] = await Promise.all([
-      // Wait for admission to the meeting
-      waitForMeetingAdmission(
-        page,
-        leaveButton,
-        botConfig.automaticLeave.waitingRoomTimeout
-      ).catch((error) => {
-        log("Meeting admission failed: " + error.message);
-        return false;
-      }),
+    await page.screenshot({ path: '/app/debug_before_wait.png' });
+    await waitForMeetingAdmission(
+      page,
+      peoplebtn,
+      botConfig.automaticLeave.waitingRoomTimeout
+    );
+    await page.screenshot({ path: '/app/debug_after_wait.png' });
+  } catch (error: any) {
+    log("Meeting admission failed: " + error.message);
+    await gracefulLeaveFunction(page, 2, "admission_failed");
+    return;
+  }
+  log("Successfully admitted to the meeting.");
 
-      // Prepare for recording (expose functions, etc.) while waiting for admission
-      prepareForRecording(page),
-    ]);
+  log("Preparing for and starting recording...");
+  try {
+    await prepareForRecording(page);
 
-    if (!isAdmitted) {
-      console.error("Bot was not admitted into the meeting");
-      log("Bot not admitted. Triggering graceful leave with admission_failed reason.");
-      
-      await gracefulLeaveFunction(page, 2, "admission_failed");
-      return; 
-    }
-
-    log("Successfully admitted to the meeting, starting recording");
-    // Pass platform from botConfig to startRecording
     await startRecording(page, botConfig);
   } catch (error: any) {
-    console.error("Error after join attempt (admission/recording setup): " + error.message);
-    log("Error after join attempt (admission/recording setup): " + error.message + ". Triggering graceful leave.");
-    // Use a general error code here, as it could be various issues.
+    log("Error during recording setup: " + error.message + ". Triggering graceful leave.");
     await gracefulLeaveFunction(page, 1, "post_join_setup_error");
     return;
   }
@@ -76,11 +62,13 @@ export async function handleGoogleMeet(
 // New function to wait for meeting admission
 const waitForMeetingAdmission = async (
   page: Page,
-  leaveButton: string,
+  peoplebtn: string,
+  //leaveButton: string,
   timeout: number
 ): Promise<boolean> => {
   try {
-    await page.waitForSelector(leaveButton, { timeout });
+    //await page.waitForSelector(peoplebtn, { timeout });
+    await page.waitForSelector(peoplebtn, { state: 'visible', timeout });
     log("Successfully admitted to the meeting");
     return true;
   } catch {
@@ -1144,4 +1132,3 @@ export async function leaveGoogleMeet(page: Page): Promise<boolean> {
     return false;
   }
 }
-// --- ------------------------------------------------------- ---
